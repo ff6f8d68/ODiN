@@ -133,11 +133,10 @@ const server = http.createServer(async (req, res) => {
     ['welcome.css', 'welcome.js', 'index.html'].includes(welcomeAsset)
   ) {
     if (welcomeAsset === 'index.html') {
-      const originDns = process.env.ORIGIN_DNS || 'origin.odin.dns:53';
       fs.readFile(welcomeAssetPath, 'utf8', (err, html) => {
         if (err) { res.writeHead(404); return res.end('Not found'); }
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(html.replace(/\{\{ORIGIN_DNS\}\}/g, originDns));
+        res.end(html);
       });
       return;
     }
@@ -166,12 +165,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   const welcomePath = path.join(PUBLIC_DIR, 'welcome', 'index.html');
-  const originDns = process.env.ORIGIN_DNS || 'origin.odin.dns:53';
   fs.readFile(welcomePath, 'utf8', (err, html) => {
     if (err) { res.writeHead(500); return res.end('Error'); }
-    const rendered = html.replace(/\{\{ORIGIN_DNS\}\}/g, originDns);
     res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(rendered);
+    res.end(html);
   });
 });
 
@@ -189,12 +186,10 @@ const welcomeServer = http.createServer(async (req, res) => {
 
   if (parsed.pathname === '/' || parsed.pathname === '/index.html' || parsed.pathname === '/welcome') {
     const welcomePath = path.join(PUBLIC_DIR, 'welcome', 'index.html');
-    const originDns = process.env.ORIGIN_DNS || 'origin.odin.dns:53';
     fs.readFile(welcomePath, 'utf8', (err, html) => {
       if (err) { res.writeHead(500); return res.end('Error'); }
-      const rendered = html.replace(/\{\{ORIGIN_DNS\}\}/g, originDns);
       res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(rendered);
+      res.end(html);
     });
     return;
   }

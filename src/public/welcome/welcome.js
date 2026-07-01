@@ -6,15 +6,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   const registerUrlEl = document.getElementById('register-url');
 
   registerUrlEl.textContent = `${window.location.origin}/api/peers/register`;
-  originEl.textContent = originEl.dataset.origin || '—';
 
   nearestEl.textContent = 'discovering…';
   statusText.textContent = 'Finding nearest peer…';
 
   try {
-    const res = await fetch('/api/nearest-peer');
-    const data = await res.json();
+    const [configRes, nearestRes] = await Promise.all([
+      fetch('/api/config'),
+      fetch('/api/nearest-peer'),
+    ]);
 
+    const config = await configRes.json();
+    originEl.textContent = config.originDns || '—';
+
+    const data = await nearestRes.json();
     if (data.endpoint) {
       nearestEl.textContent = data.endpoint;
       statusText.textContent = `Connected · ${data.peerCount ?? 1} peer${(data.peerCount ?? 1) === 1 ? '' : 's'} online`;
@@ -24,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusText.textContent = 'No peers on the network yet';
     }
   } catch {
+    originEl.textContent = 'unavailable';
     nearestEl.textContent = 'unavailable';
     statusText.textContent = 'Network unreachable';
   }

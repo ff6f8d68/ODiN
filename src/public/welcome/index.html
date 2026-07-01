@@ -13,7 +13,7 @@
     <div class="dns-card">
       <div class="dns-row">
         <span class="dns-label">Origin Node</span>
-        <code id="origin-dns" data-origin="{{ORIGIN_DNS}}">…</code>
+        <code id="origin-dns">…</code>
       </div>
       <div class="dns-row">
         <span class="dns-label">Nearest Peer</span>
@@ -32,14 +32,14 @@
       <ol>
         <li>Clone the repo and install dependencies: <code>npm install</code></li>
         <li>Start the DNS peer backend: <code>npm run start:dns</code></li>
-        <li>Set your public hostname and register with the network:
-          <pre><code>export PEER_REGISTER_URL="<span id="register-url"></span>"
-export PEER_HOST="your-public-hostname.example.com"
-export PEER_COLO="EWR"          # optional, your nearest airport code
+        <li>On Render, Railway, Fly, etc. the server auto-registers using your public hostname. Optional overrides:
+          <pre><code>export PEER_HOST="your-public-hostname.example.com"
+export PEER_REGISTER_URL="<span id="register-url"></span>"
+export PEER_COLO="EWR"          # optional
 npm run start:dns</code></pre>
         </li>
         <li>Open UDP port <code>3001</code> (or your <code>DNS_PORT</code>) on your firewall</li>
-        <li>Point clients at your peer or let them auto-discover the nearest via this page</li>
+        <li>Local dev only: set <code>PEER_AUTO_REGISTER=false</code> to skip registration</li>
       </ol>
       <p class="peer-note">Your peer heartbeats every 5 minutes. It is removed from the network after 1 hour without a heartbeat.</p>
     </details>

@@ -8,7 +8,7 @@ binding = "ASSETS"
 
 [vars]
 # Canonical origin node (reference only — DNS runs on the peer mesh)
-ORIGIN_DNS = "origin.odin.dns:53"
+ORIGIN_DNS = "odin-lohs.onrender.com:3001"
 
 [[kv_namespaces]]
 binding = "ODIN_PEERS"

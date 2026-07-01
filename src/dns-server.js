@@ -1,5 +1,6 @@
 const dns2 = require('dns2');
 const db = require('./db');
+const { resolvePeerConfig } = require('./peer-config');
 const { Packet } = dns2;
 
 const UPSTREAM_DNS = process.env.UPSTREAM_DNS || '8.8.8.8';
@@ -63,26 +64,25 @@ const server = dns2.createServer({ udp: true, handle });
 server.on('error', e => console.error('[DNS] Error:', e));
 
 const PEER_HEARTBEAT_MS = 5 * 60 * 1000;
+const peerConfig = resolvePeerConfig();
 
 async function registerAsPeer() {
-  const registerUrl = process.env.PEER_REGISTER_URL;
-  const host = process.env.PEER_HOST;
-  if (!registerUrl || !host) return;
+  if (!peerConfig.enabled) return;
 
   const body = {
-    host,
+    host: peerConfig.host,
     port: PORT,
     colo: process.env.PEER_COLO || undefined,
-    id: process.env.PEER_ID || host,
+    id: process.env.PEER_ID || peerConfig.host,
   };
 
   try {
-    const res = await fetch(registerUrl, {
+    const res = await fetch(peerConfig.registerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (res.ok) console.log(`[DNS] Registered as P2P peer: ${host}:${PORT}`);
+    if (res.ok) console.log(`[DNS] Registered as P2P peer: ${peerConfig.host}:${PORT}`);
     else console.warn(`[DNS] Peer registration failed: ${res.status}`);
   } catch (err) {
     console.warn('[DNS] Peer registration error:', err.message);
@@ -92,14 +92,16 @@ async function registerAsPeer() {
 server.on('listening', () => {
   console.log(`[DNS] Listening on port ${PORT} (UDP)`);
   console.log(`[DNS] Upstream: ${UPSTREAM_DNS}`);
-  if (process.env.PEER_REGISTER_URL && process.env.PEER_HOST) {
+
+  if (peerConfig.enabled) {
+    console.log(`[DNS] Peer mesh: ${peerConfig.host}:${PORT} → ${peerConfig.registerUrl}`);
     registerAsPeer();
     setInterval(registerAsPeer, PEER_HEARTBEAT_MS);
-    console.log(`[DNS] Peer mode: registering as ${process.env.PEER_HOST}:${PORT}`);
   } else {
-    console.log('[DNS] Standalone mode — set PEER_REGISTER_URL + PEER_HOST to join the peer mesh');
+    console.log(`[DNS] Peer mesh: skipped (${peerConfig.reason})`);
   }
 });
+
 const mode = process.env.ODIN_MODE || 'all';
 if (mode === 'dns_backend' || mode === 'all') {
   server.listen({ udp: PORT });

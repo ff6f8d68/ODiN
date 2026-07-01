@@ -1,11 +1,7 @@
 import { json } from '../../shared/utils.js';
 import { listDynamicPeers, pickNearestPeer, formatPeer } from '../../shared/peers.js';
 
-const DEFAULT_ORIGIN = 'origin.odin.dns:53';
-
-function injectOrigin(html, originDns) {
-  return html.replace(/\{\{ORIGIN_DNS\}\}/g, originDns);
-}
+const DEFAULT_ORIGIN = 'odin-lohs.onrender.com:3001';
 
 async function handlePeerRegister(request, env) {
   if (!env.ODIN_PEERS) return json({ error: 'Peer registry not configured' }, 503);
@@ -30,6 +26,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if (url.pathname === '/api/config' && request.method === 'GET') {
+      return json({ originDns: env.ORIGIN_DNS || DEFAULT_ORIGIN });
+    }
+
     if (url.pathname === '/api/nearest-peer' && request.method === 'GET') {
       const peers = await listDynamicPeers(env.ODIN_PEERS);
       const nearest = pickNearestPeer(request, peers);
@@ -45,18 +45,6 @@ export default {
 
     if (url.pathname === '/api/peers/register' && request.method === 'POST') {
       return handlePeerRegister(request, env);
-    }
-
-    if (url.pathname === '/' || url.pathname === '/index.html') {
-      const asset = await env.ASSETS.fetch(new URL('/index.html', request.url));
-      if (!asset.ok) return asset;
-
-      const originDns = env.ORIGIN_DNS || DEFAULT_ORIGIN;
-      const html = injectOrigin(await asset.text(), originDns);
-
-      return new Response(html, {
-        headers: { 'Content-Type': 'text/html;charset=UTF-8' },
-      });
     }
 
     return env.ASSETS.fetch(request);

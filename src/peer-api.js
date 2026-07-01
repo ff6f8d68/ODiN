@@ -1,6 +1,13 @@
+const DEFAULT_ORIGIN = 'odin-lohs.onrender.com:3001';
+
 async function handlePeerRoutes(req, res, parsed, { parseBody, json }) {
   const peerRegistry = require('./peer-registry');
   const { pickNearestPeer, formatPeer } = await import('../workers/shared/peers.js');
+
+  if (parsed.pathname === '/api/config' && req.method === 'GET') {
+    json(res, 200, { originDns: process.env.ORIGIN_DNS || DEFAULT_ORIGIN });
+    return true;
+  }
 
   if (parsed.pathname === '/api/peers/register' && req.method === 'POST') {
     const body = await parseBody(req);
