@@ -1,0 +1,171 @@
+:root {
+  --bg-color: #080c16;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --primary-color: #00f2fe;
+  --primary-glow: rgba(0, 242, 254, 0.15);
+  --card-bg: rgba(20, 30, 54, 0.6);
+  --card-border: rgba(255, 255, 255, 0.05);
+  --border-color: #1e293b;
+  --success-color: #10b981;
+  --gradient-primary: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(79, 172, 254, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(0, 242, 254, 0.08) 0%, transparent 40%);
+}
+
+.welcome-container {
+  text-align: center;
+  max-width: 600px;
+  padding: 40px 24px;
+}
+
+.odin-logo {
+  max-width: 180px;
+  width: 100%;
+  margin-bottom: 32px;
+  filter: drop-shadow(0 0 20px rgba(0, 242, 254, 0.3));
+}
+
+h1 {
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: 18px;
+  color: var(--text-muted);
+  margin-bottom: 40px;
+  font-weight: 300;
+}
+
+.ip-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  text-align: left;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+}
+
+.ip-icon {
+  font-size: 32px;
+  color: var(--primary-color);
+  opacity: 0.9;
+}
+
+.ip-label {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.server-ip {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-main);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px 16px;
+  border-radius: 8px;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.hosts-hint {
+  margin-top: 12px;
+}
+
+.hosts-hint p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.hosts-code {
+  display: block;
+  font-size: 14px;
+  color: #38bdf8;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.dns-info {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 32px;
+  text-align: left;
+}
+
+.dns-info p {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dns-info p:last-child { margin-bottom: 0; }
+
+.dns-info code {
+  color: var(--text-main);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.registry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--gradient-primary);
+  color: #000000;
+  font-weight: 700;
+  padding: 16px 32px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-size: 16px;
+  box-shadow: 0 4px 14px rgba(0, 242, 254, 0.2);
+  transition: all 0.3s ease;
+}
+
+.registry-btn:hover {
+  box-shadow: 0 0 25px rgba(0, 242, 254, 0.4);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  h1 { font-size: 40px; }
+  .ip-card { flex-direction: column; text-align: center; }
+  .server-ip { font-size: 22px; text-align: center; }
+}

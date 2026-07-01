@@ -1,0 +1,16 @@
+{
+  "name": "odin-dns-registry",
+  "version": "1.0.0",
+  "description": "Dockerized DNS server and domain registry website",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "dns2": "^2.0.7",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

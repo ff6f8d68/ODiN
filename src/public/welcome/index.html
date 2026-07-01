@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ODiN DNS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="welcome.css">
+</head>
+<body>
+  <div class="welcome-container">
+    <img src="../ODiN.png" alt="ODiN" class="odin-logo">
+    <h1>ODiN DNS</h1>
+    <p class="subtitle">Dynamic DNS & Domain Registry Engine</p>
+
+    <div class="ip-card">
+      <div class="ip-icon"><i class="fa-solid fa-network-wired"></i></div>
+      <div class="ip-content">
+        <p class="ip-label">Add this IP to your DNS or hosts file:</p>
+        <code class="server-ip">{{server_ip}}</code>
+        <div class="hosts-hint">
+          <p><strong>/etc/hosts</strong> entry:</p>
+          <code class="hosts-code">{{server_ip}} registry.odin</code>
+        </div>
+      </div>
+    </div>
+
+    <div class="dns-info">
+      <p><i class="fa-solid fa-dns"></i> DNS Server: <code>{{server_ip}}:{{dns_port}}</code></p>
+      <p><i class="fa-solid fa-globe"></i> Web Panel: <code>{{server_ip}}:{{http_port}}</code> or <code>http://registry.odin</code></p>
+    </div>
+
+    <a href="http://registry.odin" class="registry-btn">
+      <i class="fa-solid fa-gauge-high"></i> Open Registry Panel
+    </a>
+  </div>
+</body>
+</html>

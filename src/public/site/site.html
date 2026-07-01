@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{domain}} | Hosted on ODiN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/site/site.css">
+</head>
+<body>
+  <div class="background-grid"></div>
+  
+  <div class="site-container">
+    <header class="site-header">
+      <div class="domain-title">
+        <i class="fa-solid fa-earth-americas"></i>
+        <span>{{domain}}</span>
+      </div>
+      <a href="http://registry.odin" class="registry-link">
+        <i class="fa-solid fa-arrow-left"></i> Registry Dashboard
+      </a>
+    </header>
+
+    <main class="site-main">
+      <div class="site-card">
+        <div class="card-glow"></div>
+        <div class="site-content">
+          {{content}}
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="badge-group">
+        <span class="engine-badge"><i class="fa-solid fa-microchip"></i> Resolved via ODiN DNS</span>
+        <span class="hosting-badge"><i class="fa-solid fa-cloud"></i> Hosted Locally</span>
+      </div>
+      <p>This page was generated dynamically based on the registration records in the database.</p>
+    </footer>
+  </div>
+</body>
+</html>

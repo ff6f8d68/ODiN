@@ -1,0 +1,50 @@
+{
+  "users": {
+    "admin": {
+      "password": "2819015567a396b2938c99ea0443b1f5363c6dd18ce9c297b909aacd6d3ea99c",
+      "created": "2026-07-01T12:00:00.000Z"
+    }
+  },
+  "tlds": {
+    "odin": {
+      "name": "odin",
+      "owner": "admin",
+      "created": "2026-07-01T12:00:00.000Z"
+    },
+    "test": {
+      "name": "test",
+      "owner": "admin",
+      "created": "2026-07-01T14:22:49.949Z"
+    }
+  },
+  "registry.odin": {
+    "domain": "registry.odin",
+    "dnsType": "local",
+    "ip": "127.0.0.1",
+    "customContent": "System Registry Server",
+    "owner": "admin",
+    "created": "2026-07-01T12:00:00.000Z",
+    "records": [
+      {
+        "type": "A",
+        "value": "127.0.0.1",
+        "ttl": 300
+      }
+    ]
+  },
+  "mysite.test": {
+    "domain": "mysite.test",
+    "dnsType": "local",
+    "ip": "127.0.0.1",
+    "customContent": "Hello World",
+    "owner": "admin",
+    "created": "2026-07-01T14:23:20.014Z",
+    "records": [
+      {
+        "type": "A",
+        "value": "127.0.0.1",
+        "ttl": 300
+      }
+    ]
+  }
+}

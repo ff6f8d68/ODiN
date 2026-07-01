@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ODiN Registry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="registry.css">
+</head>
+<body>
+  <div class="glow-bg"></div>
+
+  <div class="container">
+    <header>
+      <div class="logo">
+        <i class="fa-solid fa-circle-nodes"></i>
+        <span>ODiN<span>.registry</span></span>
+      </div>
+      <div class="auth-area" id="auth-area">
+        <span id="user-display" class="hidden"></span>
+        <button id="logout-btn" class="hidden"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Auth Section (shown when not logged in) -->
+      <section id="auth-section" class="auth-section">
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-tab="login">Login</button>
+          <button class="auth-tab" data-tab="register">Register</button>
+        </div>
+
+        <div id="login-form" class="auth-form card">
+          <h2>Welcome Back</h2>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="login-username" placeholder="Enter username">
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="login-password" placeholder="Enter password">
+          </div>
+          <button id="login-btn" class="btn-primary"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
+        </div>
+
+        <div id="register-form" class="auth-form card hidden">
+          <h2>Create Account</h2>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="reg-username" placeholder="Choose a username (min 3 chars)">
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="reg-password" placeholder="Choose a password (min 6 chars)">
+          </div>
+          <button id="register-btn" class="btn-primary"><i class="fa-solid fa-user-plus"></i> Register</button>
+        </div>
+      </section>
+
+      <!-- Dashboard (shown when logged in) -->
+      <section id="dashboard" class="dashboard hidden">
+        <!-- TLD Management -->
+        <section class="card tld-section">
+          <h2><i class="fa-solid fa-layer-group"></i> TLD Network</h2>
+          <p class="section-desc">Add top-level domains to the ODiN network. Only domains under registered TLDs will be resolved locally.</p>
+
+          <div class="tld-actions">
+            <div class="tld-input-group">
+              <input type="text" id="tld-input" placeholder="New TLD (e.g. myapp, web, dev)">
+              <button id="add-tld-btn" class="btn-primary"><i class="fa-solid fa-plus"></i> Add TLD</button>
+            </div>
+          </div>
+
+          <div class="tld-list" id="tld-list">
+            <!-- Populated dynamically -->
+          </div>
+        </section>
+
+        <!-- Register Domain -->
+        <section class="card register-section">
+          <h2><i class="fa-solid fa-globe"></i> Register Domain</h2>
+          <p class="section-desc">Register a new domain under a registered TLD.</p>
+
+          <div class="register-form-grid">
+            <div class="form-group">
+              <label>Domain Name</label>
+              <input type="text" id="reg-domain" placeholder="my site">
+            </div>
+            <div class="form-group">
+              <label>TLD</label>
+              <select id="reg-tld">
+                <option value="">Select TLD</option>
+              </select>
+            </div>
+            <div class="form-group full-width">
+              <label>DNS Resolution Type</label>
+              <div class="radio-group">
+                <div class="radio-card selected" data-value="local">
+                  <i class="fa-solid fa-server"></i>
+                  <div class="radio-info">
+                    <span class="title">Host on ODiN</span>
+                    <span class="desc">Serve a website from this server</span>
+                  </div>
+                </div>
+                <div class="radio-card" data-value="custom">
+                  <i class="fa-solid fa-route"></i>
+                  <div class="radio-info">
+                    <span class="title">Custom IP</span>
+                    <span class="desc">Point to an external IP address</span>
+                  </div>
+                </div>
+              </div>
+              <input type="hidden" id="dns-type" value="local">
+            </div>
+            <div class="form-group" id="custom-ip-group">
+              <label>Destination IP</label>
+              <input type="text" id="custom-ip" placeholder="e.g. 192.168.1.100">
+            </div>
+            <div class="form-group full-width" id="custom-content-group">
+              <label>Website Content</label>
+              <textarea id="custom-content" rows="4" placeholder="Enter HTML or plain text for your site..."></textarea>
+            </div>
+            <button id="register-domain-btn" class="btn-primary full-width"><i class="fa-solid fa-plus-circle"></i> Register Domain</button>
+          </div>
+        </section>
+
+        <!-- My Domains -->
+        <section class="card domains-section">
+          <h2><i class="fa-solid fa-list-check"></i> My Domains</h2>
+          <div class="table-container">
+            <table class="domains-table">
+              <thead>
+                <tr>
+                  <th>Domain</th>
+                  <th>Type</th>
+                  <th>Records</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="domains-list">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+            <div id="empty-domains" class="empty-state hidden">
+              <i class="fa-regular fa-folder-open"></i>
+              <p>No domains registered yet</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- DNS Records Panel -->
+        <section class="card records-section">
+          <h2><i class="fa-solid fa-sliders"></i> DNS Records</h2>
+          <p class="section-desc">Select a domain to manage its DNS records.</p>
+
+          <div class="records-controls">
+            <select id="records-domain-select">
+              <option value="">Select a domain...</option>
+            </select>
+          </div>
+
+          <div id="records-panel" class="hidden">
+            <div class="records-list" id="records-list">
+              <!-- Populated dynamically -->
+            </div>
+
+            <div class="add-record-form">
+              <h3>Add Record</h3>
+              <div class="record-form-grid">
+                <div class="form-group">
+                  <label>Type</label>
+                  <select id="record-type">
+                    <option value="A">A</option>
+                    <option value="AAAA">AAAA</option>
+                    <option value="CNAME">CNAME</option>
+                    <option value="MX">MX</option>
+                    <option value="TXT">TXT</option>
+                    <option value="NS">NS</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Value</label>
+                  <input type="text" id="record-value" placeholder="e.g. 192.168.1.1">
+                </div>
+                <div class="form-group">
+                  <label>TTL</label>
+                  <input type="number" id="record-ttl" value="300" min="60">
+                </div>
+                <button id="add-record-btn" class="btn-primary"><i class="fa-solid fa-plus"></i> Add</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer>
+      <p>ODiN DNS & Registry Engine &copy; 2026. Premium Network Tool.</p>
+    </footer>
+  </div>
+
+  <script src="registry.js"></script>
+</body>
+</html>
