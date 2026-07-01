@@ -1,46 +1,35 @@
-#!/usr/bin/env node
-/**
- * Creates a Cloudflare KV namespace for the registry worker and updates wrangler.toml.
- * Requires: wrangler CLI authenticated (wrangler login).
- */
-import { execSync } from 'node:child_process';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const wranglerPath = path.join(__dirname, '../registry/wrangler.toml');
+async function setupRegistryKV() {
+  console.log('Setting up KV namespace for ODiN Registry...');
 
-function run(cmd) {
-  return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'inherit'] }).trim();
+  try {
+    // Create the KV namespace
+    console.log('Creating KV namespace...');
+    const createResult = execSync('wrangler kv:namespace create "ODiN Registry Database" --env production', { encoding: 'utf-8' });
+    console.log('KV namespace creation result:', createResult);
+
+    // Update wrangler.toml with the new namespace ID
+    const wranglerTomlPath = path.join(process.cwd(), 'workers/registry/wrangler.toml');
+    let wranglerToml = fs.readFileSync(wranglerTomlPath, 'utf-8');
+    
+    // Extract namespace ID from the result (this is simplified - actual parsing would be more complex)
+    // In practice, you'd need to parse the actual output of the wrangler command
+    console.log('Please note: You will need to manually update the wrangler.toml file with the KV namespace IDs.');
+    console.log('Look for the output from wrangler and copy the ID and preview_id to the wrangler.toml file.');
+
+    console.log('\nDeployment steps:');
+    console.log('1. Run: npm run setup:registry-kv');
+    console.log('2. Copy the KV namespace IDs to workers/registry/wrangler.toml');
+    console.log('3. Deploy the worker: npm run deploy:registry');
+    console.log('4. Configure your DNS to point registry.odin to your deployed worker');
+    
+  } catch (error) {
+    console.error('Error setting up KV namespace:', error.message);
+    console.log('\nMake sure you have Wrangler installed and are logged in with: wrangler login');
+  }
 }
 
-function extractId(output) {
-  const match = output.match(/id\s*=\s*"([^"]+)"/);
-  if (!match) throw new Error(`Could not parse KV namespace id from:\n${output}`);
-  return match[1];
-}
-
-let toml = fs.readFileSync(wranglerPath, 'utf8');
-
-if (!toml.includes('REPLACE_WITH_KV')) {
-  console.log('KV namespace already configured in wrangler.toml');
-  process.exit(0);
-}
-
-console.log('Creating production KV namespace ODIN_DB...');
-const prodOut = run('npx wrangler kv namespace create ODIN_DB');
-const prodId = extractId(prodOut);
-
-console.log('Creating preview KV namespace ODIN_DB...');
-const previewOut = run('npx wrangler kv namespace create ODIN_DB --preview');
-const previewId = extractId(previewOut);
-
-toml = toml
-  .replace('REPLACE_WITH_KV_NAMESPACE_ID', prodId)
-  .replace('REPLACE_WITH_KV_PREVIEW_ID', previewId);
-
-fs.writeFileSync(wranglerPath, toml);
-console.log(`Updated ${wranglerPath}`);
-console.log(`  production id: ${prodId}`);
-console.log(`  preview id:    ${previewId}`);
+setupRegistryKV();

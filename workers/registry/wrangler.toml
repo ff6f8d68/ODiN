@@ -12,3 +12,8 @@ binding = "ASSETS"
 binding = "ODIN_DB"
 id = "REPLACE_WITH_KV_NAMESPACE_ID"
 preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+
+# Add routes configuration for registry.odin
+
+[env.production]
+name = "odin-registry"
