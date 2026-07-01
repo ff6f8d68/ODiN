@@ -3,39 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ODiN DNS</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>ODiN</title>
   <link rel="stylesheet" href="welcome.css">
 </head>
 <body>
   <div class="welcome-container">
-    <img src="../ODiN.png" alt="ODiN" class="odin-logo">
-    <h1>ODiN DNS</h1>
-    <p class="subtitle">Dynamic DNS & Domain Registry Engine</p>
+    <img src="/ODiN.png" alt="ODiN" class="odin-logo" width="200" height="200">
 
-    <div class="ip-card">
-      <div class="ip-icon"><i class="fa-solid fa-network-wired"></i></div>
-      <div class="ip-content">
-        <p class="ip-label">Add this IP to your DNS or hosts file:</p>
-        <code class="server-ip">{{server_ip}}</code>
-        <div class="hosts-hint">
-          <p><strong>/etc/hosts</strong> entry:</p>
-          <code class="hosts-code">{{server_ip}} registry.odin</code>
-        </div>
+    <div class="dns-card">
+      <div class="dns-row">
+        <span class="dns-label">Origin Node</span>
+        <code id="origin-dns" data-origin="{{ORIGIN_DNS}}">…</code>
+      </div>
+      <div class="dns-row">
+        <span class="dns-label">Nearest Peer</span>
+        <code id="nearest-dns">…</code>
       </div>
     </div>
 
-    <div class="dns-info">
-      <p><i class="fa-solid fa-dns"></i> DNS Server: <code>{{server_ip}}:{{dns_port}}</code></p>
-      <p><i class="fa-solid fa-globe"></i> Web Panel: <code>{{server_ip}}:{{http_port}}</code> or <code>http://registry.odin</code></p>
+    <div class="network-status">
+      <span class="status-dot"></span>
+      <span id="status-text">Connecting…</span>
     </div>
 
-    <a href="http://registry.odin" class="registry-btn">
-      <i class="fa-solid fa-gauge-high"></i> Open Registry Panel
-    </a>
+    <details class="peer-guide">
+      <summary>Become a DNS peer</summary>
+      <p class="peer-intro">ODiN DNS is a mesh of independent peer servers run by users. If one peer goes offline, the rest keep resolving.</p>
+      <ol>
+        <li>Clone the repo and install dependencies: <code>npm install</code></li>
+        <li>Start the DNS peer backend: <code>npm run start:dns</code></li>
+        <li>Set your public hostname and register with the network:
+          <pre><code>export PEER_REGISTER_URL="<span id="register-url"></span>"
+export PEER_HOST="your-public-hostname.example.com"
+export PEER_COLO="EWR"          # optional, your nearest airport code
+npm run start:dns</code></pre>
+        </li>
+        <li>Open UDP port <code>3001</code> (or your <code>DNS_PORT</code>) on your firewall</li>
+        <li>Point clients at your peer or let them auto-discover the nearest via this page</li>
+      </ol>
+      <p class="peer-note">Your peer heartbeats every 5 minutes. It is removed from the network after 1 hour without a heartbeat.</p>
+    </details>
   </div>
+
+  <script src="welcome.js"></script>
 </body>
 </html>

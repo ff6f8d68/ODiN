@@ -1,11 +1,13 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 
 const DB_PATH = path.join(__dirname, 'domains.json');
 
+const SALT = 'odin_salt_2026';
+
 function hashPassword(password) {
-  return crypto.createHash('sha256').update(password + 'odin_salt_2026').digest('hex');
+  return crypto.createHash('sha256').update(password + SALT).digest('hex');
 }
 
 function verifyPassword(password, hash) {
@@ -14,45 +16,18 @@ function verifyPassword(password, hash) {
 
 function initDb() {
   if (!fs.existsSync(DB_PATH)) {
-    const initialData = {
-      users: {
-        'admin': {
-          password: hashPassword('admin'),
-          created: new Date().toISOString()
-        }
-      },
-      tlds: {
-        'odin': {
-          name: 'odin',
-          owner: 'admin',
-          created: new Date().toISOString()
-        }
-      },
-      'registry.odin': {
-        domain: 'registry.odin',
-        dnsType: 'local',
-        ip: '127.0.0.1',
-        customContent: 'System Registry Server',
-        owner: 'admin',
-        created: new Date().toISOString(),
-        records: [
-          { type: 'A', value: '127.0.0.1', ttl: 300 }
-        ]
-      }
-    };
-    fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
-    return;
+    return createInitialDb();
   }
 
   const data = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
   let changed = false;
 
   if (!data.users) {
-    data.users = { 'admin': { password: hashPassword('admin'), created: new Date().toISOString() } };
+    data.users = { admin: { password: hashPassword('admin'), created: new Date().toISOString() } };
     changed = true;
   }
   if (!data.tlds) {
-    data.tlds = { 'odin': { name: 'odin', owner: 'admin', created: new Date().toISOString() } };
+    data.tlds = { odin: { name: 'odin', owner: 'admin', created: new Date().toISOString() } };
     changed = true;
   }
 
@@ -69,150 +44,50 @@ function initDb() {
     }
   }
 
-  if (changed) {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-  }
+  if (changed) fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+}
+
+function createInitialDb() {
+  const data = {
+    users: { admin: { password: hashPassword('admin'), created: new Date().toISOString() } },
+    tlds: { odin: { name: 'odin', owner: 'admin', created: new Date().toISOString() } },
+    'registry.odin': {
+      domain: 'registry.odin', dnsType: 'local', ip: '127.0.0.1',
+      customContent: 'System Registry Server', owner: 'admin',
+      created: new Date().toISOString(), records: [{ type: 'A', value: '127.0.0.1', ttl: 300 }]
+    }
+  };
+  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
 }
 
 function getData() {
   initDb();
-  try {
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-  } catch (err) {
-    console.error('Error reading database:', err);
-    return { users: {}, tlds: {} };
-  }
+  try { return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); }
+  catch (err) { console.error('Error reading database:', err); return { users: {}, tlds: {} }; }
 }
 
 function saveData(data) {
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-    return true;
-  } catch (err) {
-    console.error('Error writing database:', err);
-    return false;
-  }
+  try { fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2)); return true; }
+  catch (err) { console.error('Error writing database:', err); return false; }
 }
 
-function getUsers() { return getData().users || {}; }
-function getUser(username) { return getData().users?.[username]; }
-
-function createUser(username, password) {
-  const data = getData();
-  if (!data.users) data.users = {};
-  if (data.users[username]) return false;
-  data.users[username] = { password: hashPassword(password), created: new Date().toISOString() };
-  return saveData(data);
-}
-
-function verifyUser(username, password) {
-  const user = getUser(username);
-  if (!user) return false;
-  return verifyPassword(password, user.password);
-}
-
-function getTlds() { return getData().tlds || {}; }
-function getTld(name) { return getData().tlds?.[name]; }
-
-function createTld(name, owner) {
-  const data = getData();
-  if (!data.tlds) data.tlds = {};
-  if (data.tlds[name]) return false;
-  data.tlds[name] = { name, owner, created: new Date().toISOString() };
-  return saveData(data);
-}
-
-function deleteTld(name) {
-  const data = getData();
-  if (!data.tlds?.[name]) return false;
-  delete data.tlds[name];
-  return saveData(data);
-}
-
-function getDomains() {
-  const data = getData();
-  const result = {};
-  for (const [key, val] of Object.entries(data)) {
-    if (key === 'users' || key === 'tlds') continue;
-    if (typeof val === 'object' && val.domain) result[key] = val;
-  }
-  return result;
-}
-
-function getDomain(domain) {
-  return getData()[domain.toLowerCase().replace(/\.$/, '')];
-}
-
-function registerDomain(domain, options = {}) {
-  const data = getData();
-  const cleanDomain = domain.toLowerCase().replace(/\.$/, '');
-  if (data[cleanDomain]) return false;
-
-  const record = {
-    domain: cleanDomain,
-    dnsType: options.dnsType || 'local',
-    ip: options.ip || '127.0.0.1',
-    customContent: options.customContent || '',
-    owner: options.owner || 'admin',
-    created: new Date().toISOString(),
-    records: options.records || (options.dnsType === 'custom' ? [{ type: 'A', value: options.ip || '127.0.0.1', ttl: 300 }] : [{ type: 'A', value: '127.0.0.1', ttl: 300 }])
-  };
-
-  data[cleanDomain] = record;
-  return saveData(data);
-}
-
-function deleteDomain(domain) {
-  const data = getData();
-  const cleanDomain = domain.toLowerCase().replace(/\.$/, '');
-  if (!data[cleanDomain]) return false;
-  delete data[cleanDomain];
-  return saveData(data);
-}
-
-function addRecord(domain, type, value, ttl = 300) {
-  const data = getData();
-  const cleanDomain = domain.toLowerCase().replace(/\.$/, '');
-  const record = data[cleanDomain];
-  if (!record) return false;
-  if (!record.records) record.records = [];
-  record.records = record.records.filter(r => !(r.type === type && r.value === value));
-  record.records.push({ type, value, ttl });
-  return saveData(data);
-}
-
-function deleteRecord(domain, type, value) {
-  const data = getData();
-  const cleanDomain = domain.toLowerCase().replace(/\.$/, '');
-  const record = data[cleanDomain];
-  if (!record || !record.records) return false;
-  record.records = record.records.filter(r => !(r.type === type && r.value === value));
-  return saveData(data);
-}
-
-function getRecords(domain) {
-  const record = getDomain(domain);
-  if (!record) return [];
-  return record.records || [];
-}
-
-module.exports = {
-  initDb,
-  hashPassword,
-  verifyPassword,
-  getUsers,
-  getUser,
-  createUser,
-  verifyUser,
-  getTlds,
-  getTld,
-  createTld,
-  deleteTld,
-  getDomains,
-  getDomain,
-  registerDomain,
-  deleteDomain,
-  addRecord,
-  deleteRecord,
-  getRecords
+const db = {
+  hashPassword, verifyPassword,
+  getUsers: () => getData().users || {},
+  getUser: (u) => getData().users?.[u],
+  createUser: (u, p) => { const d = getData(); if (!d.users) d.users = {}; if (d.users[u]) return false; d.users[u] = { password: hashPassword(p), created: new Date().toISOString() }; return saveData(d); },
+  verifyUser: (u, p) => { const user = db.getUser(u); return user ? verifyPassword(p, user.password) : false; },
+  getTlds: () => getData().tlds || {},
+  getTld: (t) => getData().tlds?.[t],
+  createTld: (t, o) => { const d = getData(); if (!d.tlds) d.tlds = {}; if (d.tlds[t]) return false; d.tlds[t] = { name: t, owner: o, created: new Date().toISOString() }; return saveData(d); },
+  deleteTld: (t) => { const d = getData(); if (!d.tlds?.[t]) return false; delete d.tlds[t]; return saveData(d); },
+  getDomains: () => { const d = getData(); const r = {}; for (const [k, v] of Object.entries(d)) { if (k === 'users' || k === 'tlds') continue; if (typeof v === 'object' && v.domain) r[k] = v; } return r; },
+  getDomain: (d) => getData()[d.toLowerCase().replace(/\.$/, '')],
+  registerDomain: (d, opts) => { const data = getData(); const c = d.toLowerCase().replace(/\.$/, ''); if (data[c]) return false; data[c] = { domain: c, dnsType: opts.dnsType || 'local', ip: opts.ip || '127.0.0.1', customContent: opts.customContent || '', owner: opts.owner || 'admin', created: new Date().toISOString(), records: opts.records || (opts.dnsType === 'custom' ? [{ type: 'A', value: opts.ip || '127.0.0.1', ttl: 300 }] : [{ type: 'A', value: '127.0.0.1', ttl: 300 }]) }; return saveData(data); },
+  deleteDomain: (d) => { const data = getData(); const c = d.toLowerCase().replace(/\.$/, ''); if (!data[c]) return false; delete data[c]; return saveData(data); },
+  addRecord: (d, t, v, ttl = 300) => { const data = getData(); const c = d.toLowerCase().replace(/\.$/, ''); const r = data[c]; if (!r) return false; if (!r.records) r.records = []; r.records = r.records.filter(x => !(x.type === t && x.value === v)); r.records.push({ type: t, value: v, ttl }); return saveData(data); },
+  deleteRecord: (d, t, v) => { const data = getData(); const c = d.toLowerCase().replace(/\.$/, ''); const r = data[c]; if (!r || !r.records) return false; r.records = r.records.filter(x => !(x.type === t && x.value === v)); return saveData(data); },
+  getRecords: (d) => { const r = db.getDomain(d); return r ? (r.records || []) : []; }
 };
+
+module.exports = db;

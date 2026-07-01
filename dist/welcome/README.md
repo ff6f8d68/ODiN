@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "odin-welcome" generated at 2026-07-01T16:50:19.033Z.

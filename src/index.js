@@ -1,41 +1,73 @@
-const os = require('os');
-const dnsServer = require('./dns-server');
-const webServer = require('./web-server');
+// Parse mode before loading servers so only the selected services start.
+const args = process.argv.slice(2);
+let mode = process.env.ODIN_MODE || 'all';
 
-function getLocalIp() {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
-    }
+for (const arg of args) {
+  if (arg.startsWith('--mode=')) {
+    mode = arg.split('=')[1];
+    break;
   }
-  return '127.0.0.1';
 }
 
-const LOCAL_IP = getLocalIp();
-const DNS_PORT = parseInt(process.env.DNS_PORT || '53', 10);
-const HTTP_PORT = parseInt(process.env.HTTP_PORT || '80', 10);
+process.env.ODIN_MODE = mode;
+
+const dns = (mode === 'dns_backend' || mode === 'all') ? require('./dns-server') : null;
+const web = (mode === 'website_welcome' || mode === 'all') ? require('./web-server') : null;
+const reg = (mode === 'website_registry' || mode === 'all') ? require('./registry-server') : null;
+
+const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3002', 10);
+const REG_PORT = parseInt(process.env.REGISTRY_PORT || '3003', 10);
 
 console.log('=============================================');
 console.log('      ODiN DNS & Domain Registry Server     ');
+console.log(`Mode: ${mode}`);
 console.log('=============================================');
 
 try {
-  const dnsInstance = dnsServer.start(DNS_PORT);
-  const webInstance = webServer.start(HTTP_PORT, LOCAL_IP);
+  if (mode === 'dns_backend') {
+    const shutdown = () => {
+      console.log('\n[System] Shutting down DNS backend...');
+      console.log('[DNS] Stopped');
+      process.exit(0);
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  } else if (mode === 'website_welcome') {
+    web.welcomeServer.listen(HTTP_PORT, () => {
+      console.log(`[WELCOME] Welcome website on port ${HTTP_PORT}`);
+    });
 
-  const shutdown = () => {
-    console.log('\n[System] Shutting down ODiN services...');
-    webInstance.close(() => console.log('[System] HTTP Web Server stopped.'));
-    console.log('[System] DNS Server stopped.');
-    process.exit(0);
-  };
+    const shutdown = () => {
+      console.log('\n[System] Shutting down welcome website...');
+      web.welcomeServer.close(() => console.log('[WEB] Welcome website stopped'));
+      process.exit(0);
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  } else if (mode === 'website_registry') {
+    reg.server.listen(REG_PORT, () => {
+      console.log(`[REGISTRY] Registry website on port ${REG_PORT}`);
+    });
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+    const shutdown = () => {
+      console.log('\n[System] Shutting down registry website...');
+      reg.server.close(() => console.log('[REG] Registry website stopped'));
+      process.exit(0);
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  } else {
+    const shutdown = () => {
+      console.log('\n[System] Shutting down...');
+      web.server.close(() => console.log('[WEB] Stopped'));
+      reg.server.close(() => console.log('[REG] Stopped'));
+      console.log('[DNS] Stopped');
+      process.exit(0);
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  }
 } catch (err) {
-  console.error('[System] Error starting ODiN engine:', err);
+  console.error('[System] Error:', err);
   process.exit(1);
 }

@@ -1,0 +1,14 @@
+name = "odin-registry"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "../../src/public/registry"
+binding = "ASSETS"
+
+# Create KV namespace: npm run setup:registry-kv
+# Then paste the id below (or run setup script which updates this file)
+[[kv_namespaces]]
+binding = "ODIN_DB"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_KV_PREVIEW_ID"

@@ -1,14 +1,28 @@
 {
   "name": "odin-dns-registry",
   "version": "1.0.0",
-  "description": "Dockerized DNS server and domain registry website",
+  "description": "ODiN DNS & Domain Registry Engine",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "start:dns": "node src/index.js --mode=dns_backend",
+    "start:web": "node src/index.js --mode=website_welcome",
+    "start:registry": "node src/index.js --mode=website_registry",
+    "start:all": "node src/index.js --mode=all",
+    "build:web": "node workers/scripts/prepare-welcome-assets.mjs && wrangler deploy --config workers/welcome/wrangler.toml --dry-run --outdir dist/welcome",
+    "build:registry": "wrangler deploy --config workers/registry/wrangler.toml --dry-run --outdir dist/registry",
+    "deploy:web": "node workers/scripts/prepare-welcome-assets.mjs && wrangler deploy --config workers/welcome/wrangler.toml",
+    "deploy:registry": "wrangler deploy --config workers/registry/wrangler.toml",
+    "dev:web": "wrangler dev --config workers/welcome/wrangler.toml",
+    "dev:registry": "wrangler dev --config workers/registry/wrangler.toml",
+    "setup:registry-kv": "node workers/scripts/setup-registry-kv.mjs",
+    "setup:welcome-kv": "node workers/scripts/setup-welcome-kv.mjs"
   },
   "dependencies": {
-    "dns2": "^2.0.7",
-    "express": "^4.19.2"
+    "dns2": "^2.0.7"
+  },
+  "devDependencies": {
+    "wrangler": "^3.114.0"
   },
   "engines": {
     "node": ">=18.0.0"

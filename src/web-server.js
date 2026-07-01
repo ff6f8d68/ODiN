@@ -1,364 +1,224 @@
-const express = require('express');
-const path = require('path');
+const http = require('http');
 const fs = require('fs');
-const crypto = require('crypto');
+const path = require('path');
+const url = require('url');
+const os = require('os');
 const db = require('./db');
+const { handlePeerRoutes } = require('./peer-api');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const PORT = parseInt(process.env.HTTP_PORT || '3002', 10);
 
-const sessions = new Map();
-
-function createSession(username) {
-  const sessionId = crypto.randomBytes(16).toString('hex');
-  sessions.set(sessionId, { username, createdAt: Date.now() });
-  return sessionId;
+function getLocalIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+    }
+  }
+  return '127.0.0.1';
 }
 
-function getSession(req) {
-  const sessionId = req.cookies?.['odin_session'];
-  if (!sessionId) return null;
-  return sessions.get(sessionId) || null;
+const LOCAL_IP = getLocalIp();
+
+const MIME = {
+  '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
+};
+
+function serveStatic(res, filePath) {
+  fs.readFile(filePath, (err, data) => {
+    if (err) { res.writeHead(404); res.end('Not found'); return; }
+    const ext = path.extname(filePath);
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'text/plain' });
+    res.end(data);
+  });
 }
 
-function requireAuth(req, res, next) {
-  const session = getSession(req);
-  if (!session) return res.status(401).json({ error: 'Unauthorized' });
-  req.user = session;
-  next();
+function parseBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try { resolve(JSON.parse(body)); } catch { resolve({}); }
+    });
+  });
 }
 
-function start(port = 80, serverIp = '127.0.0.1') {
-  const app = express();
-  const DNS_PORT = parseInt(process.env.DNS_PORT || '53', 10);
+function json(res, status, obj) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(obj));
+}
 
-  app.use((req, res, next) => {
-    const cookieHeader = req.headers.cookie;
-    if (cookieHeader) {
-      req.cookies = {};
-      cookieHeader.split(';').forEach(c => {
-        const [name, ...rest] = c.trim().split('=');
-        req.cookies[name] = decodeURIComponent(rest.join('='));
+function getCookie(req, name) {
+  const match = req.headers.cookie?.match(new RegExp('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)'));
+  return match ? match[2] : null;
+}
+
+const server = http.createServer(async (req, res) => {
+  const host = (req.headers.host || '').split(':')[0].toLowerCase();
+  const parsed = url.parse(req.url, true);
+
+  console.log(`[WEB] ${req.method} ${parsed.pathname} (Host: ${host})`);
+
+  if (parsed.pathname === '/api/domains' && req.method === 'GET') {
+    return json(res, 200, Object.values(db.getDomains()));
+  }
+
+  if (parsed.pathname === '/api/domains/check' && req.method === 'GET') {
+    const domain = parsed.query.domain?.trim().toLowerCase();
+    if (!domain) return json(res, 400, { available: false, reason: 'No domain provided' });
+
+    const regex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,10}$/i;
+    if (!regex.test(domain)) return json(res, 200, { available: false, reason: 'Invalid domain format' });
+    if (domain === 'registry.odin') return json(res, 200, { available: false, reason: 'Reserved domain' });
+
+    const tld = domain.split('.').pop();
+    if (!db.getTld(tld)) return json(res, 200, { available: false, reason: `TLD .${tld} is not part of the ODiN network` });
+
+    if (db.getDomain(domain)) return json(res, 200, { available: false, reason: 'Already registered' });
+    return json(res, 200, { available: true });
+  }
+
+  if (parsed.pathname === '/api/domains/me' && req.method === 'GET') {
+    const sessionId = getCookie(req, 'odin_session');
+    // Session validation would require a session store; for now public read is handled by /api/domains
+    return json(res, 200, []);
+  }
+
+  if (parsed.pathname === '/api/domains' && req.method === 'POST') {
+    const body = await parseBody(req);
+    const domain = body.domain?.trim().toLowerCase();
+    if (!domain) return json(res, 400, { success: false, error: 'Domain is required' });
+
+    const regex = /^[a-z0-9]+([\-\.]{1}[z0-9]+)*\.[a-z]{2,10}$/i;
+    if (!regex.test(domain)) return json(res, 400, { success: false, error: 'Invalid domain format' });
+    if (domain === 'registry.odin') return json(res, 400, { success: false, error: 'Cannot register registry.odin' });
+
+    const tld = domain.split('.').pop();
+    if (!db.getTld(tld)) return json(res, 400, { success: false, error: `TLD .${tld} is not part of the ODiN network` });
+    if (db.getDomain(domain)) return json(res, 400, { success: false, error: 'Domain already registered' });
+
+    const success = db.registerDomain(domain, {
+      dnsType: body.dnsType || 'local',
+      ip: body.ip || '127.0.0.1',
+      customContent: body.customContent || '',
+      owner: body.owner || 'admin',
+      records: body.dnsType === 'custom' ? [{ type: 'A', value: body.ip || '127.0.0.1', ttl: 300 }] : [{ type: 'A', value: '127.0.0.1', ttl: 300 }]
+    });
+
+    if (success) { console.log(`[WEB] Registered: ${domain}`); return json(res, 200, { success: true, domain }); }
+    return json(res, 500, { success: false, error: 'Failed to write database' });
+  }
+
+  if (parsed.pathname.startsWith('/api/domains/') && req.method === 'DELETE') {
+    const domain = parsed.pathname.split('/')[3];
+    if (!domain) return json(res, 400, { success: false, error: 'Domain required' });
+    if (domain === 'registry.odin') return json(res, 400, { success: false, error: 'Cannot delete registry.odin' });
+    if (db.deleteDomain(domain)) { console.log(`[WEB] Deleted: ${domain}`); return json(res, 200, { success: true }); }
+    return json(res, 400, { success: false, error: 'Domain not found' });
+  }
+
+  if (await handlePeerRoutes(req, res, parsed, { parseBody, json })) return;
+
+  if (parsed.pathname === '/ODiN.png') {
+    return serveStatic(res, path.join(PUBLIC_DIR, 'ODiN.png'));
+  }
+
+  const welcomeAsset = parsed.pathname.replace(/^\//, '');
+  const welcomeAssetPath = path.join(PUBLIC_DIR, 'welcome', welcomeAsset);
+  if (
+    welcomeAsset &&
+    welcomeAssetPath.startsWith(path.join(PUBLIC_DIR, 'welcome')) &&
+    ['welcome.css', 'welcome.js', 'index.html'].includes(welcomeAsset)
+  ) {
+    if (welcomeAsset === 'index.html') {
+      const originDns = process.env.ORIGIN_DNS || 'origin.odin.dns:53';
+      fs.readFile(welcomeAssetPath, 'utf8', (err, html) => {
+        if (err) { res.writeHead(404); return res.end('Not found'); }
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(html.replace(/\{\{ORIGIN_DNS\}\}/g, originDns));
       });
+      return;
     }
-    next();
+    return serveStatic(res, welcomeAssetPath);
+  }
+
+  // Host-based routing
+  if (host === 'registry.odin') {
+    const filePath = path.join(PUBLIC_DIR, 'registry', 'index.html');
+    return serveStatic(res, filePath);
+  }
+
+  const record = db.getDomain(host);
+  if (record) {
+    if (record.dnsType === 'local') {
+      const templatePath = path.join(PUBLIC_DIR, 'site', 'site.html');
+      fs.readFile(templatePath, 'utf8', (err, html) => {
+        if (err) { res.writeHead(500); return res.end('Error'); }
+        const rendered = html.replace(/{{domain}}/g, record.domain).replace(/{{content}}/g, record.customContent || 'Welcome!');
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(rendered);
+      });
+      return;
+    }
+    return json(res, 200, { message: `Domain points to ${record.ip}` });
+  }
+
+  const welcomePath = path.join(PUBLIC_DIR, 'welcome', 'index.html');
+  const originDns = process.env.ORIGIN_DNS || 'origin.odin.dns:53';
+  fs.readFile(welcomePath, 'utf8', (err, html) => {
+    if (err) { res.writeHead(500); return res.end('Error'); }
+    const rendered = html.replace(/\{\{ORIGIN_DNS\}\}/g, originDns);
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(rendered);
   });
+});
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+// Create a server specifically for the welcome website (only serves welcome page)
+const welcomeServer = http.createServer(async (req, res) => {
+  const parsed = url.parse(req.url, true);
 
-  app.use((req, res, next) => {
-    const hostHeader = req.headers.host || '';
-    const host = hostHeader.split(':')[0].toLowerCase();
-    console.log(`[HTTP] ${req.method} ${req.url} (Host: ${host})`);
-    next();
-  });
+  console.log(`[WELCOME] ${req.method} ${parsed.pathname}`);
 
-  app.post('/api/auth/register', (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password required' });
-    }
-    if (username.length < 3) {
-      return res.status(400).json({ error: 'Username must be at least 3 characters' });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    }
+  if (await handlePeerRoutes(req, res, parsed, { parseBody, json })) return;
 
-    const success = db.createUser(username, password);
-    if (!success) {
-      return res.status(409).json({ error: 'Username already exists' });
-    }
+  if (parsed.pathname === '/ODiN.png') {
+    return serveStatic(res, path.join(PUBLIC_DIR, 'ODiN.png'));
+  }
 
-    const sessionId = createSession(username);
-    res.cookie('odin_session', sessionId, { httpOnly: true, maxAge: 86400000 });
-    res.json({ success: true, username });
-  });
-
-  app.post('/api/auth/login', (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password required' });
-    }
-
-    if (!db.verifyUser(username, password)) {
-      return res.status(401).json({ error: 'Invalid username or password' });
-    }
-
-    const sessionId = createSession(username);
-    res.cookie('odin_session', sessionId, { httpOnly: true, maxAge: 86400000 });
-    res.json({ success: true, username });
-  });
-
-  app.post('/api/auth/logout', (req, res) => {
-    const sessionId = req.cookies?.['odin_session'];
-    if (sessionId) sessions.delete(sessionId);
-    res.clearCookie('odin_session');
-    res.json({ success: true });
-  });
-
-  app.get('/api/auth/me', (req, res) => {
-    const session = getSession(req);
-    if (!session) return res.json({ authenticated: false });
-    res.json({ authenticated: true, username: session.username });
-  });
-
-  app.get('/api/tlds', (req, res) => {
-    const tlds = db.getTlds();
-    res.json(Object.values(tlds).map(t => ({ name: t.name, owner: t.owner, created: t.created })));
-  });
-
-  app.post('/api/tlds', requireAuth, (req, res) => {
-    const { name } = req.body;
-    if (!name) return res.status(400).json({ error: 'TLD name required' });
-
-    const cleanTld = name.toLowerCase().replace(/^\./, '');
-    const success = db.createTld(cleanTld, req.user.username);
-    if (!success) {
-      return res.status(409).json({ error: 'TLD already exists' });
-    }
-    res.json({ success: true, tld: cleanTld });
-  });
-
-  app.delete('/api/tlds/:tld', requireAuth, (req, res) => {
-    const { tld } = req.params;
-    const cleanTld = tld.toLowerCase().replace(/^\./, '');
-    const tldRecord = db.getTld(cleanTld);
-    if (!tldRecord) return res.status(404).json({ error: 'TLD not found' });
-    if (tldRecord.owner !== req.user.username) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
-    const success = db.deleteTld(cleanTld);
-    if (!success) return res.status(500).json({ error: 'Failed to delete TLD' });
-    res.json({ success: true });
-  });
-
-  app.get('/api/domains', (req, res) => {
-    const domains = db.getDomains();
-    res.json(Object.values(domains));
-  });
-
-  app.get('/api/domains/check', (req, res) => {
-    const { domain } = req.query;
-    if (!domain) return res.status(400).json({ available: false, reason: 'No domain provided' });
-
-    const cleanDomain = domain.trim().toLowerCase();
-    const domainRegex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,10}$/i;
-    if (!domainRegex.test(cleanDomain)) {
-      return res.status(200).json({ available: false, reason: 'Invalid domain format' });
-    }
-
-    if (cleanDomain === 'registry.odin') {
-      return res.status(200).json({ available: false, reason: 'Reserved domain' });
-    }
-
-    const tld = cleanDomain.split('.').pop();
-    const tldRecord = db.getTld(tld);
-    if (!tldRecord) {
-      return res.status(200).json({ available: false, reason: `TLD .${tld} is not part of the ODiN network` });
-    }
-
-    const record = db.getDomain(cleanDomain);
-    if (record) {
-      return res.status(200).json({ available: false, reason: 'Already registered' });
-    }
-
-    return res.json({ available: true });
-  });
-
-  app.post('/api/domains', requireAuth, (req, res) => {
-    const { domain, dnsType, ip, customContent } = req.body;
-
-    if (!domain) {
-      return res.status(400).json({ success: false, error: 'Domain is required' });
-    }
-
-    const cleanDomain = domain.trim().toLowerCase();
-
-    const domainRegex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,10}$/i;
-    if (!domainRegex.test(cleanDomain)) {
-      return res.status(400).json({ success: false, error: 'Invalid domain format' });
-    }
-
-    if (cleanDomain === 'registry.odin') {
-      return res.status(400).json({ success: false, error: 'Cannot register registry.odin' });
-    }
-
-    const tld = cleanDomain.split('.').pop();
-    const tldRecord = db.getTld(tld);
-    if (!tldRecord) {
-      return res.status(400).json({ success: false, error: `TLD .${tld} is not part of the ODiN network` });
-    }
-
-    const existing = db.getDomain(cleanDomain);
-    if (existing) {
-      return res.status(400).json({ success: false, error: 'Domain already registered' });
-    }
-
-    const success = db.registerDomain(cleanDomain, {
-      dnsType: dnsType || 'local',
-      ip: ip || '127.0.0.1',
-      customContent: customContent || '',
-      owner: req.user.username,
-      records: dnsType === 'custom' ? [{ type: 'A', value: ip || '127.0.0.1', ttl: 300 }] : [{ type: 'A', value: '127.0.0.1', ttl: 300 }]
-    });
-
-    if (success) {
-      console.log(`[HTTP] Registered domain: ${cleanDomain} (${dnsType}) by ${req.user.username}`);
-      res.json({ success: true, domain: cleanDomain });
-    } else {
-      res.status(500).json({ success: false, error: 'Failed to write database' });
-    }
-  });
-
-  app.get('/api/domains/me', requireAuth, (req, res) => {
-    const domains = db.getDomains();
-    const userDomains = Object.values(domains).filter(d => d.owner === req.user.username);
-    res.json(userDomains);
-  });
-
-  app.delete('/api/domains/:domain', requireAuth, (req, res) => {
-    const { domain } = req.params;
-    const cleanDomain = domain.trim().toLowerCase();
-
-    if (cleanDomain === 'registry.odin') {
-      return res.status(400).json({ success: false, error: 'Cannot delete registry.odin' });
-    }
-
-    const record = db.getDomain(cleanDomain);
-    if (!record) {
-      return res.status(404).json({ success: false, error: 'Domain not found' });
-    }
-    if (record.owner !== req.user.username) {
-      return res.status(403).json({ success: false, error: 'Not authorized' });
-    }
-
-    const success = db.deleteDomain(cleanDomain);
-    if (success) {
-      console.log(`[HTTP] Deleted domain: ${cleanDomain} by ${req.user.username}`);
-      res.json({ success: true });
-    } else {
-      res.status(400).json({ success: false, error: 'Domain not found or could not be deleted' });
-    }
-  });
-
-  app.get('/api/domains/:domain/records', requireAuth, (req, res) => {
-    const { domain } = req.params;
-    const record = db.getDomain(domain);
-    if (!record) return res.status(404).json({ error: 'Domain not found' });
-    if (record.owner !== req.user.username) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
-    res.json(record.records || []);
-  });
-
-  app.post('/api/domains/:domain/records', requireAuth, (req, res) => {
-    const { domain } = req.params;
-    const { type, value, ttl } = req.body;
-
-    if (!type || !value) {
-      return res.status(400).json({ error: 'Type and value required' });
-    }
-
-    const cleanDomain = domain.toLowerCase().replace(/\.$/, '');
-    const record = db.getDomain(cleanDomain);
-    if (!record) return res.status(404).json({ error: 'Domain not found' });
-    if (record.owner !== req.user.username) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
-
-    const success = db.addRecord(cleanDomain, type.toUpperCase(), value, parseInt(ttl) || 300);
-    if (!success) return res.status(500).json({ error: 'Failed to add record' });
-
-    res.json({ success: true });
-  });
-
-  app.delete('/api/domains/:domain/records/:type/:value', requireAuth, (req, res) => {
-    const { domain, type, value } = req.params;
-    const cleanDomain = domain.toLowerCase().replace(/\.$/, '');
-
-    const record = db.getDomain(cleanDomain);
-    if (!record) return res.status(404).json({ error: 'Domain not found' });
-    if (record.owner !== req.user.username) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
-
-    const success = db.deleteRecord(cleanDomain, decodeURIComponent(type), decodeURIComponent(value));
-    if (!success) return res.status(500).json({ error: 'Failed to delete record' });
-
-    res.json({ success: true });
-  });
-
-  // Direct access to registry panel
-  app.get('/registry*', (req, res, next) => {
-    const host = req.headers.host.split(':')[0].toLowerCase();
-    if (host === 'registry.odin') return next();
-    const registryPath = path.join(PUBLIC_DIR, 'registry', 'index.html');
-    fs.readFile(registryPath, 'utf8', (err, html) => {
-      if (err) return res.status(500).send('Internal Server Error');
-      res.setHeader('Content-Type', 'text/html');
-      res.send(html);
-    });
-  });
-
-  app.use((req, res, next) => {
-    const hostHeader = req.headers.host || '';
-    const host = hostHeader.split(':')[0].toLowerCase();
-
-    if (host === 'registry.odin') {
-      return express.static(path.join(PUBLIC_DIR, 'registry'))(req, res, next);
-    }
-
-    const record = db.getDomain(host);
-    if (record) {
-      if (record.dnsType === 'local') {
-        const templatePath = path.join(PUBLIC_DIR, 'site', 'site.html');
-        fs.readFile(templatePath, 'utf8', (err, html) => {
-          if (err) {
-            console.error('Error reading site template:', err);
-            return res.status(500).send('Internal Server Error');
-          }
-
-          let renderedHtml = html
-            .replace(/{{domain}}/g, record.domain)
-            .replace(/{{content}}/g, record.customContent || 'Welcome to this site!');
-
-          res.setHeader('Content-Type', 'text/html');
-          res.send(renderedHtml);
-        });
-        return;
-      } else {
-        return res.send(`Domain ${record.domain} is pointing to custom IP ${record.ip}. If you see this, you accessed this host directly.`);
-      }
-    }
-
+  if (parsed.pathname === '/' || parsed.pathname === '/index.html' || parsed.pathname === '/welcome') {
     const welcomePath = path.join(PUBLIC_DIR, 'welcome', 'index.html');
+    const originDns = process.env.ORIGIN_DNS || 'origin.odin.dns:53';
     fs.readFile(welcomePath, 'utf8', (err, html) => {
-      if (err) {
-        console.error('Error reading welcome page:', err);
-        return res.status(500).send('Internal Server Error');
-      }
-
-      let renderedHtml = html
-        .replace(/\{\{server_ip\}\}/g, serverIp)
-        .replace(/\{\{dns_port\}\}/g, String(process.env.DNS_PORT || 53))
-        .replace(/\{\{http_port\}\}/g, String(process.env.HTTP_PORT || 80));
-
-      res.setHeader('Content-Type', 'text/html');
-      res.send(renderedHtml);
+      if (err) { res.writeHead(500); return res.end('Error'); }
+      const rendered = html.replace(/\{\{ORIGIN_DNS\}\}/g, originDns);
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(rendered);
     });
-  });
+    return;
+  }
 
-  app.use('/site', express.static(path.join(PUBLIC_DIR, 'site')));
-  app.use('/welcome', express.static(path.join(PUBLIC_DIR, 'welcome')));
-  app.use('/registry', express.static(path.join(PUBLIC_DIR, 'registry')));
+  const assetPath = parsed.pathname.replace(/^\//, '');
+  const filePath = path.join(PUBLIC_DIR, 'welcome', assetPath);
+  if (filePath.startsWith(path.join(PUBLIC_DIR, 'welcome'))) {
+    return serveStatic(res, filePath);
+  }
 
-  const server = app.listen(port, () => {
-    console.log(`[HTTP] Web server listening on port ${port}`);
-    console.log(`[HTTP] Server IP: ${serverIp}`);
-  });
+  res.writeHead(404);
+  res.end('Not Found');
+});
 
-  return server;
+const mode = process.env.ODIN_MODE || 'all';
+if (mode === 'all') {
+  server.listen(PORT, () => console.log(`[WEB] Website server on port ${PORT}`));
 }
 
-module.exports = { start };
+// Export both servers
+module.exports = { 
+  server, 
+  welcomeServer,
+  // Also export the PORT for consistency
+  PORT
+};
+

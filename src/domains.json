@@ -15,6 +15,11 @@
       "name": "test",
       "owner": "admin",
       "created": "2026-07-01T14:22:49.949Z"
+    },
+    "mytld": {
+      "name": "mytld",
+      "owner": "admin",
+      "created": "2026-07-01T15:50:43.861Z"
     }
   },
   "registry.odin": {
@@ -39,6 +44,21 @@
     "customContent": "Hello World",
     "owner": "admin",
     "created": "2026-07-01T14:23:20.014Z",
+    "records": [
+      {
+        "type": "A",
+        "value": "127.0.0.1",
+        "ttl": 300
+      }
+    ]
+  },
+  "mytest.mytld": {
+    "domain": "mytest.mytld",
+    "dnsType": "local",
+    "ip": "127.0.0.1",
+    "customContent": "Hello from ODiN",
+    "owner": "admin",
+    "created": "2026-07-01T15:51:43.255Z",
     "records": [
       {
         "type": "A",

@@ -1,0 +1,16 @@
+name = "odin-welcome"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "../../src/public/welcome"
+binding = "ASSETS"
+
+[vars]
+# Canonical origin node (reference only — DNS runs on the peer mesh)
+ORIGIN_DNS = "origin.odin.dns:53"
+
+[[kv_namespaces]]
+binding = "ODIN_PEERS"
+id = "fc59c0aaeaeb46eb8add7400ebaf75fc"
+preview_id = "9bae0a8c1d9049fa9221ba545a12c998"
