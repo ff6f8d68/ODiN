@@ -14,9 +14,12 @@ process.env.ODIN_MODE = mode;
 const dns = (mode === 'dns_backend' || mode === 'all') ? require('./dns-server') : null;
 const web = (mode === 'website_welcome' || mode === 'all') ? require('./web-server') : null;
 const reg = (mode === 'website_registry' || mode === 'all') ? require('./registry-server') : null;
+const { startHealthServer } = require('./health-server');
+const { resolvePeerConfig } = require('./peer-config');
 
 const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3002', 10);
 const REG_PORT = parseInt(process.env.REGISTRY_PORT || '3003', 10);
+const DNS_PORT = parseInt(process.env.DNS_PORT || '3001', 10);
 
 console.log('=============================================');
 console.log('      ODiN DNS & Domain Registry Server     ');
@@ -25,8 +28,19 @@ console.log('=============================================');
 
 try {
   if (mode === 'dns_backend') {
+    const peerConfig = resolvePeerConfig();
+    const healthSrv = startHealthServer(() => ({
+      ok: true,
+      mode: 'dns_backend',
+      dns: { port: DNS_PORT, protocol: 'udp' },
+      peer: peerConfig.enabled
+        ? { host: peerConfig.host, port: DNS_PORT, registerUrl: peerConfig.registerUrl }
+        : null,
+    }));
+
     const shutdown = () => {
       console.log('\n[System] Shutting down DNS backend...');
+      healthSrv.close(() => console.log('[HEALTH] Stopped'));
       console.log('[DNS] Stopped');
       process.exit(0);
     };
